@@ -1,0 +1,2890 @@
+// Checkout functions
+        function showCheckout() {
+            if (cart.length === 0) return;
+            
+            const modal = document.getElementById('checkout-modal');
+            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            document.getElementById('checkout-total').textContent = `Tổng: ${formatPrice(total)}`;
+            document.getElementById('transfer-content').textContent = `DH${Date.now()}`;
+            
+            // Pre-fill form if user is logged in
+            if (isUserLoggedIn && currentUser) {
+                document.getElementById('customer-name').value = currentUser.name;
+                document.getElementById('customer-phone').value = currentUser.phone;
+                document.getElementById('customer-email').value = currentUser.email;
+                
+                // Show saved addresses and save option
+                const savedAddressesDiv = document.getElementById('saved-addresses');
+                const saveAddressOption = document.getElementById('save-address-option');
+                const savedAddressSelect = document.getElementById('saved-address-select');
+                
+                if (currentUser.addresses && currentUser.addresses.length > 0) {
+                    savedAddressesDiv.style.display = 'block';
+                    
+                    // Populate saved addresses dropdown
+                    savedAddressSelect.innerHTML = '<option value="">Nhập địa chỉ mới</option>';
+                    currentUser.addresses.forEach(address => {
+                        const option = document.createElement('option');
+                        option.value = address.id;
+                        option.textContent = `${address.name} - ${address.detail}, ${address.ward}, ${address.district}${address.isDefault ? ' (Mặc định)' : ''}`;
+                        savedAddressSelect.appendChild(option);
+                    });
+                    
+                    // Auto-select default address
+                    const defaultAddress = currentUser.addresses.find(a => a.isDefault);
+                    if (defaultAddress) {
+                        savedAddressSelect.value = defaultAddress.id;
+                        fillAddressFromSaved();
+                    }
+                }
+                
+                saveAddressOption.style.display = 'block';
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function fillAddressFromSaved() {
+            const savedAddressSelect = document.getElementById('saved-address-select');
+            const selectedAddressId = parseInt(savedAddressSelect.value);
+            
+            if (selectedAddressId && currentUser.addresses) {
+                const address = currentUser.addresses.find(a => a.id === selectedAddressId);
+                if (address) {
+                    document.getElementById('customer-name').value = address.name;
+                    document.getElementById('customer-phone').value = address.phone;
+                    document.getElementById('customer-province').value = address.province;
+                    document.getElementById('customer-district').value = address.district;
+                    document.getElementById('customer-ward').value = address.ward;
+                    document.getElementById('customer-address').value = address.detail;
+                    
+                    // Hide save option when using existing address
+                    document.getElementById('save-address-option').style.display = 'none';
+                }
+            } else {
+                // Clear form and show save option
+                document.getElementById('customer-province').value = '';
+                document.getElementById('customer-district').value = '';
+                document.getElementById('customer-ward').value = '';
+                document.getElementById('customer-address').value = '';
+                document.getElementById('save-address-option').style.display = 'block';
+            }
+        }        .hidden {
+            display: none !important;
+        }
+
+        /* Final catch-all for any overflow issues */
+        * {
+            max-width: 100% !important;
+        }
+
+        body * {
+            position: relative;
+        }                            <div class="form-group">
+                                <label>Tùy chọn sản phẩm (mỗi tùy chọn một dòng, format: tên:giá_thêm):</label>
+                                <textarea id="product-variants" rows="3" placeholder="Ví dụ:&#10;Chỉ camera:0&#10;Camera + Nguồn:500000&#10;Camera + Nguồn + Thẻ nhớ 64GB:800000" style="width: 100%; padding: 0.8rem; border: 2px solid #ddd; border-radius: 5px;"></textarea>
+                                <small style="color: #666; font-style: italic;">
+                                    Nhập mỗi tùy chọn một dòng. Format: <strong>Tên tùy chọn:Giá thêm</strong><br>
+                                    Ví dụ: "Camera + Nguồn:500000" có nghĩa là thêm 500,000đ so với giá gốc
+                                </small>
+                            </div><!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechStore - Cửa Hàng Điện Tử</title>
+    <style>
+        html {
+            overflow-x: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+            overflow-x: hidden;
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+
+        .cart-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .cart-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .cart-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 2rem 0;
+            min-height: calc(100vh - 80px);
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #home-page {
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #admin-page {
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+            text-align: center;
+            padding: 4rem 2rem;
+            margin-bottom: 3rem;
+            border-radius: 15px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+
+        /* Product Grid */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .image-preview-item {
+            position: relative;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 0.5rem;
+            background: white;
+        }
+
+        .image-preview-item.cover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .image-preview-item img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .image-preview-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            justify-content: center;
+        }
+
+        .image-preview-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .set-cover-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .set-cover-btn:hover {
+            background: #5a67d8;
+        }
+
+        .remove-image-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .remove-image-btn:hover {
+            background: #ff5252;
+        }
+
+        .cover-label {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #667eea;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .product-image {
+            width: 100%;
+            height: 200px;
+            background: #f1f2f6;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #ddd;
+            object-fit: cover;
+        }
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .main-image {
+            width: 100%;
+            height: 300px;
+            background: #f1f2f6;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: #ddd;
+            object-fit: cover;
+        }
+
+        .main-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .thumbnail {
+            width: 60px;
+            height: 60px;
+            background: #f1f2f6;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.3s;
+            object-fit: cover;
+        }
+
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 3px;
+        }
+
+        .product-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: #2d3436;
+        }
+
+        .product-price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e17055;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.3s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 2rem;
+            width: 90%;
+            max-width: 800px;
+            border-radius: 15px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            float: right;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .product-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+
+        .product-gallery {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .main-image {
+            width: 100%;
+            height: 300px;
+            background: #f1f2f6;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: #ddd;
+        }
+
+        .thumbnail-images {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .thumbnail {
+            width: 60px;
+            height: 60px;
+            background: #f1f2f6;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.3s;
+        }
+
+        .thumbnail.active {
+            border-color: #667eea;
+        }
+
+        .product-options {
+            margin: 1rem 0;
+        }
+
+        .option-group {
+            margin-bottom: 1rem;
+        }
+
+        .option-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .option-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .quantity-btn {
+            background: #ddd;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .quantity-input {
+            width: 60px;
+            text-align: center;
+            padding: 0.5rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+
+        /* Cart Sidebar */
+        .cart-sidebar {
+            position: fixed;
+            right: -400px;
+            top: 0;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+            transition: right 0.3s;
+            z-index: 2001;
+            overflow-y: auto;
+        }
+
+        .cart-sidebar.open {
+            right: 0;
+        }
+
+        .cart-header {
+            padding: 1rem;
+            background: #667eea;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cart-items {
+            padding: 1rem;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-item-image {
+            width: 60px;
+            height: 60px;
+            background: #f1f2f6;
+            border-radius: 5px;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .cart-item-info h4 {
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-item-price {
+            font-weight: bold;
+            color: #e17055;
+        }
+
+        .cart-total {
+            padding: 1rem;
+            border-top: 2px solid #eee;
+            background: #f8f9fa;
+        }
+
+        .total-price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3436;
+            margin-bottom: 1rem;
+        }
+
+        /* Checkout Form */
+        .checkout-form {
+            padding: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .payment-options {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .payment-option {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .payment-option.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        /* Admin Panel */
+        .admin-panel {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 2rem;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #eee;
+        }
+
+        .admin-header h2 {
+            margin: 0;
+            color: #2d3436;
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #eee;
+        }
+
+        .admin-tab {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-bottom: 3px solid transparent;
+            transition: border-color 0.3s;
+            color: #666;
+        }
+
+        .admin-tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .admin-content {
+            display: none;
+        }
+
+        .admin-content.active {
+            display: block;
+        }
+
+        .product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 100%;
+        }
+
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            background: white;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: box-shadow 0.3s;
+        }
+
+        .product-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .product-item-info {
+            flex: 1;
+        }
+
+        .product-item-info h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.2rem;
+            color: #2d3436;
+        }
+
+        .product-item-info p {
+            margin: 0;
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+        }
+
+        /* Utilities */
+        .text-center {
+            text-align: center;
+        }
+
+        .clearfix::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        /* Force clean layout */
+        .clean-container {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        /* Remove any floating text */
+        body > div:not(#app):not(.modal):not(.cart-sidebar) {
+            display: none !important;
+        }
+
+        body > text:not(script):not(style) {
+            display: none !important;
+        }
+
+        /* Ensure all text stays within bounds */
+        h1, h2, h3, h4, h5, h6, p, span, div {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        /* Prevent any positioning issues */
+        body > *:not(header):not(main):not(.modal):not(.cart-sidebar):not(script):not(style) {
+            position: static !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Customer Details Modal */
+        .customer-detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2002;
+        }
+
+        .customer-detail-content {
+            background: white;
+            margin: 3% auto;
+            padding: 2rem;
+            width: 90%;
+            max-width: 900px;
+            border-radius: 15px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .customer-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .customer-info-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .customer-info-card h4 {
+            margin-bottom: 1rem;
+            color: #2d3436;
+            font-size: 1.1rem;
+        }
+
+        .customer-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .customer-info-item:last-child {
+            border-bottom: none;
+        }
+
+        .customer-info-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .customer-info-value {
+            color: #2d3436;
+        }
+
+        .order-history-section {
+            margin-top: 2rem;
+        }
+
+        .order-history-item {
+            background: white;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.3s;
+        }
+
+        .order-history-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .order-id {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .order-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .order-status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .order-status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .order-items-list {
+            margin: 1rem 0;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f1f2f6;
+        }
+
+        .order-item:last-child {
+            border-bottom: none;
+        }
+
+        .order-total {
+            text-align: right;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #e17055;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid #eee;
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+            
+            .hero {
+                padding: 2rem 1rem;
+                margin-bottom: 2rem;
+            }
+            
+            .products-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+                margin: 1.5rem 0;
+            }
+            
+            .product-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .cart-sidebar {
+                width: 100%;
+                right: -100%;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .nav-links {
+                gap: 1rem;
+            }
+            
+            .logo {
+                font-size: 1.5rem;
+            }
+            
+            .payment-options {
+                flex-direction: column;
+            }
+            
+            .admin-tabs {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .admin-tab {
+                padding: 0.8rem 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero {
+                padding: 1.5rem 0.5rem;
+            }
+            
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+            
+            .products-grid {
+                gap: 1rem;
+            }
+            
+            .product-card {
+                padding: 1rem;
+            }
+            
+            .modal-content {
+                margin: 2% auto;
+                width: 95%;
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">📱 TechStore</div>
+            <div class="nav-links">
+                <a href="#" onclick="showPage('home')">Trang chủ</a>
+                <a href="#" onclick="showPage('admin')" id="admin-link">
+                    <span id="admin-text">Quản lý</span>
+                </a>
+                <div id="user-menu">
+                    <a href="#" onclick="showUserLoginModal()" id="login-link">Đăng nhập</a>
+                    <div id="user-info" class="hidden" style="display: flex; align-items: center; gap: 1rem;">
+                        <a href="#" onclick="showPage('account')" id="user-welcome" style="color: white; text-decoration: none;"></a>
+                        <a href="#" onclick="userLogout()" style="color: #ffeb3b;">Đăng xuất</a>
+                    </div>
+                </div>
+                <button class="cart-btn" onclick="toggleCart()">
+                    🛒 Giỏ hàng
+                    <span class="cart-count">0</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <!-- Home Page -->
+        <div id="home-page">
+            <section class="hero">
+                <h1>Chào mừng đến TechStore</h1>
+                <p>Cửa hàng điện tử uy tín với đa dạng sản phẩm chất lượng cao</p>
+            </section>
+
+            <section class="products-grid" id="products-grid">
+                <!-- Products will be rendered here -->
+            </section>
+        </div>
+
+        <!-- Account Page -->
+        <div id="account-page" class="hidden">
+            <div class="admin-panel">
+                <div class="admin-header">
+                    <h2>Tài khoản của tôi</h2>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span style="color: #666;" id="account-welcome"></span>
+                        <button class="btn btn-secondary" onclick="showPage('home')">Về trang chủ</button>
+                    </div>
+                </div>
+                
+                <div class="admin-tabs">
+                    <button class="admin-tab active" onclick="showAccountTab('profile')">Thông tin cá nhân</button>
+                    <button class="admin-tab" onclick="showAccountTab('addresses')">Địa chỉ giao hàng</button>
+                    <button class="admin-tab" onclick="showAccountTab('orders')">Đơn hàng của tôi</button>
+                </div>
+
+                <div id="account-profile" class="admin-content active">
+                    <h3>Thông tin cá nhân</h3>
+                    <div class="checkout-form" style="max-width: 500px;">
+                        <form id="profile-form">
+                            <div class="form-group">
+                                <label>Họ và tên:</label>
+                                <input type="text" id="profile-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Email:</label>
+                                <input type="email" id="profile-email" required disabled style="background: #f5f5f5;">
+                                <small style="color: #666;">Email không thể thay đổi</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Số điện thoại chính:</label>
+                                <input type="tel" id="profile-phone" required>
+                            </div>
+                            <button type="submit" class="btn">Cập nhật thông tin</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="account-addresses" class="admin-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h3>Địa chỉ giao hàng</h3>
+                        <button class="btn" onclick="showAddAddressForm()">+ Thêm địa chỉ mới</button>
+                    </div>
+                    
+                    <div id="addresses-list">
+                        <!-- Addresses will be listed here -->
+                    </div>
+
+                    <!-- Add/Edit Address Form -->
+                    <div id="address-form" class="hidden" style="margin-top: 2rem; padding: 2rem; background: #f8f9fa; border-radius: 10px;">
+                        <h3 id="address-form-title">Thêm địa chỉ mới</h3>
+                        <form id="address-form-element">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tên người nhận:</label>
+                                    <input type="text" id="address-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Số điện thoại:</label>
+                                    <input type="tel" id="address-phone" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tỉnh/Thành phố:</label>
+                                    <select id="address-province" required>
+                                        <option value="">Chọn tỉnh/thành phố</option>
+                                        <option value="hanoi">Hà Nội</option>
+                                        <option value="hcm">TP. Hồ Chí Minh</option>
+                                        <option value="danang">Đà Nẵng</option>
+                                        <option value="haiphong">Hải Phòng</option>
+                                        <option value="cantho">Cần Thơ</option>
+                                        <option value="angiang">An Giang</option>
+                                        <option value="bariavungtau">Bà Rịa - Vũng Tàu</option>
+                                        <option value="bacgiang">Bắc Giang</option>
+                                        <option value="backan">Bắc Kạn</option>
+                                        <option value="baclieu">Bạc Liêu</option>
+                                        <option value="bacninh">Bắc Ninh</option>
+                                        <option value="bentre">Bến Tre</option>
+                                        <option value="binhdinh">Bình Định</option>
+                                        <option value="binhduong">Bình Dương</option>
+                                        <option value="binhphuoc">Bình Phước</option>
+                                        <option value="binhthuan">Bình Thuận</option>
+                                        <option value="camau">Cà Mau</option>
+                                        <option value="caobang">Cao Bằng</option>
+                                        <option value="daklak">Đắk Lắk</option>
+                                        <option value="daknong">Đắk Nông</option>
+                                        <option value="dienbien">Điện Biên</option>
+                                        <option value="dongnai">Đồng Nai</option>
+                                        <option value="dongthap">Đồng Tháp</option>
+                                        <option value="gialai">Gia Lai</option>
+                                        <option value="hagiang">Hà Giang</option>
+                                        <option value="hanam">Hà Nam</option>
+                                        <option value="hatay">Hà Tây</option>
+                                        <option value="hatinh">Hà Tĩnh</option>
+                                        <option value="haiduong">Hải Dương</option>
+                                        <option value="haugiang">Hậu Giang</option>
+                                        <option value="hoabinh">Hòa Bình</option>
+                                        <option value="hungyen">Hưng Yên</option>
+                                        <option value="khanhhoa">Khánh Hòa</option>
+                                        <option value="kiengiang">Kiên Giang</option>
+                                        <option value="kontum">Kon Tum</option>
+                                        <option value="laichau">Lai Châu</option>
+                                        <option value="lamdong">Lâm Đồng</option>
+                                        <option value="langson">Lạng Sơn</option>
+                                        <option value="laocai">Lào Cai</option>
+                                        <option value="longan">Long An</option>
+                                        <option value="namdinh">Nam Định</option>
+                                        <option value="nghean">Nghệ An</option>
+                                        <option value="ninhbinh">Ninh Bình</option>
+                                        <option value="ninhthuan">Ninh Thuận</option>
+                                        <option value="phutho">Phú Thọ</option>
+                                        <option value="phuyen">Phú Yên</option>
+                                        <option value="quangbinh">Quảng Bình</option>
+                                        <option value="quangnam">Quảng Nam</option>
+                                        <option value="quangngai">Quảng Ngãi</option>
+                                        <option value="quangninh">Quảng Ninh</option>
+                                        <option value="quangtri">Quảng Trị</option>
+                                        <option value="soctrang">Sóc Trăng</option>
+                                        <option value="sonla">Sơn La</option>
+                                        <option value="tayninh">Tây Ninh</option>
+                                        <option value="thaibinh">Thái Bình</option>
+                                        <option value="thainguyen">Thái Nguyên</option>
+                                        <option value="thanhhoa">Thanh Hóa</option>
+                                        <option value="thuathienhue">Thừa Thiên Huế</option>
+                                        <option value="tiengiang">Tiền Giang</option>
+                                        <option value="travinh">Trà Vinh</option>
+                                        <option value="tuyenquang">Tuyên Quang</option>
+                                        <option value="vinhlong">Vĩnh Long</option>
+                                        <option value="vinhphuc">Vĩnh Phúc</option>
+                                        <option value="yenbai">Yên Bái</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Quận/Huyện:</label>
+                                    <input type="text" id="address-district" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Phường/Xã:</label>
+                                    <input type="text" id="address-ward" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Địa chỉ chi tiết:</label>
+                                    <input type="text" id="address-detail" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="checkbox" id="address-default">
+                                    Đặt làm địa chỉ mặc định
+                                </label>
+                            </div>
+                            <div style="display: flex; gap: 1rem;">
+                                <button type="submit" class="btn">Lưu địa chỉ</button>
+                                <button type="button" class="btn btn-secondary" onclick="hideAddressForm()">Hủy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="account-orders" class="admin-content">
+                    <h3>Đơn hàng của tôi</h3>
+                    <div id="user-orders-list">
+                        <!-- User orders will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Page -->
+        <div id="admin-page" class="hidden">
+            <div class="admin-panel">
+                <h2>Bảng Điều Khiển Quản Lý</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <span>Xin chào, Admin!</span>
+                    <button class="btn btn-secondary" onclick="logout()">Đăng xuất</button>
+                </div>
+                
+                <div class="admin-tabs">
+                    <button class="admin-tab active" onclick="showAdminTab('products')">Quản lý sản phẩm</button>
+                    <button class="admin-tab" onclick="showAdminTab('customers')">Quản lý khách hàng</button>
+                    <button class="admin-tab" onclick="showAdminTab('orders')">Đơn hàng</button>
+                </div>
+
+                <div id="admin-products" class="admin-content active">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h3>Danh sách sản phẩm</h3>
+                        <button class="btn" onclick="showAddProductForm()">+ Thêm sản phẩm mới</button>
+                    </div>
+                    
+                    <div id="product-list" class="product-list">
+                        <!-- Products will be listed here -->
+                    </div>
+
+                    <!-- Add/Edit Product Form -->
+                    <div id="product-form" class="hidden" style="margin-top: 2rem; padding: 2rem; background: #f8f9fa; border-radius: 10px;">
+                        <h3 id="form-title">Thêm sản phẩm mới</h3>
+                        <form id="product-form-element">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tên sản phẩm:</label>
+                                    <input type="text" id="product-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Giá (VNĐ):</label>
+                                    <input type="number" id="product-price" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Mô tả:</label>
+                                <textarea id="product-description" rows="3" style="width: 100%; padding: 0.8rem; border: 2px solid #ddd; border-radius: 5px;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Số lượng:</label>
+                                <input type="number" id="product-stock" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Hình ảnh sản phẩm:</label>
+                                <input type="file" id="product-images" multiple accept="image/*" style="width: 100%; padding: 0.8rem; border: 2px solid #ddd; border-radius: 5px;">
+                                <small style="color: #666; font-style: italic;">Chọn nhiều ảnh. Ảnh đầu tiên sẽ là ảnh bìa hiển thị trên trang chính.</small>
+                                
+                                <div id="image-preview" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
+                                    <!-- Image previews will appear here -->
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 1rem;">
+                                <button type="submit" class="btn">Lưu sản phẩm</button>
+                                <button type="button" class="btn btn-secondary" onclick="hideProductForm()">Hủy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="admin-customers" class="admin-content">
+                    <h3>Quản lý khách hàng</h3>
+                    <div id="customers-list">
+                        <!-- Customers will be listed here -->
+                    </div>
+                </div>
+
+                <div id="admin-orders" class="admin-content">
+                    <h3>Đơn hàng</h3>
+                    <div id="orders-list">
+                        <!-- Orders will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Product Detail Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeProductModal()">&times;</span>
+            <div id="product-detail-content">
+                <!-- Product details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Sidebar -->
+    <div id="cart-sidebar" class="cart-sidebar">
+        <div class="cart-header">
+            <h3>Giỏ hàng</h3>
+            <span class="close" onclick="toggleCart()">&times;</span>
+        </div>
+        <div class="cart-items" id="cart-items">
+            <!-- Cart items will be listed here -->
+        </div>
+        <div class="cart-total">
+            <div class="total-price" id="cart-total">Tổng: 0 VNĐ</div>
+            <button class="btn" onclick="showCheckout()" id="checkout-btn">Thanh toán</button>
+        </div>
+    </div>
+
+    <!-- User Login/Register Modal -->
+    <div id="user-login-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close" onclick="closeUserModal()">&times;</span>
+            
+            <!-- Login Form -->
+            <div id="login-form-container">
+                <h2>Đăng nhập tài khoản</h2>
+                <div class="checkout-form">
+                    <form id="user-login-form">
+                        <div class="form-group">
+                            <label>Email:</label>
+                            <input type="email" id="login-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Mật khẩu:</label>
+                            <input type="password" id="login-password" required>
+                        </div>
+                        <button type="submit" class="btn">Đăng nhập</button>
+                        <div id="login-user-error" style="color: #ff6b6b; margin-top: 1rem; display: none;">
+                            Email hoặc mật khẩu không đúng!
+                        </div>
+                        <div style="text-align: center; margin-top: 1rem;">
+                            <span style="color: #666;">Chưa có tài khoản? </span>
+                            <a href="#" onclick="showRegisterForm()" style="color: #667eea; text-decoration: none;">Đăng ký ngay</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form-container" class="hidden">
+                <h2>Đăng ký tài khoản</h2>
+                <div class="checkout-form">
+                    <form id="user-register-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Họ và tên:</label>
+                                <input type="text" id="register-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Số điện thoại:</label>
+                                <input type="tel" id="register-phone" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Email:</label>
+                            <input type="email" id="register-email" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Mật khẩu:</label>
+                                <input type="password" id="register-password" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label>Xác nhận mật khẩu:</label>
+                                <input type="password" id="register-confirm-password" required minlength="6">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn">Đăng ký</button>
+                        <div id="register-error" style="color: #ff6b6b; margin-top: 1rem; display: none;"></div>
+                        <div style="text-align: center; margin-top: 1rem;">
+                            <span style="color: #666;">Đã có tài khoản? </span>
+                            <a href="#" onclick="showLoginForm()" style="color: #667eea; text-decoration: none;">Đăng nhập</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Detail Modal -->
+    <div id="customer-detail-modal" class="customer-detail-modal">
+        <div class="customer-detail-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 id="customer-detail-title">Thông tin khách hàng</h2>
+                <span class="close" onclick="closeCustomerDetailModal()" style="font-size: 2rem; cursor: pointer; color: #999;">&times;</span>
+            </div>
+            <div id="customer-detail-body">
+                <!-- Customer details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <!-- Admin Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close" onclick="closeLoginModal()">&times;</span>
+            <h2>Đăng nhập quản lý</h2>
+            <div class="checkout-form">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Tên đăng nhập:</label>
+                        <input type="text" id="admin-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mật khẩu:</label>
+                        <input type="password" id="admin-password" required>
+                    </div>
+                    <button type="submit" class="btn">Đăng nhập</button>
+                    <div id="login-error" style="color: #ff6b6b; margin-top: 1rem; display: none;">
+                        Tên đăng nhập hoặc mật khẩu không đúng!
+                    </div>
+                    <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 10px; font-size: 0.9rem;">
+                        <strong>Thông tin đăng nhập demo:</strong><br>
+                        Tên đăng nhập: <code>admin</code><br>
+                        Mật khẩu: <code>admin123</code>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCheckout()">&times;</span>
+            <h2>Thanh toán đơn hàng</h2>
+            <div class="checkout-form">
+                <form id="checkout-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Họ và tên:</label>
+                            <input type="text" id="customer-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Số điện thoại:</label>
+                            <input type="tel" id="customer-phone" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email (không bắt buộc):</label>
+                        <input type="email" id="customer-email">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tỉnh/Thành phố:</label>
+                            <select id="customer-province" required>
+                                <option value="">Chọn tỉnh/thành phố</option>
+                                <option value="hanoi">Hà Nội</option>
+                                <option value="hcm">TP. Hồ Chí Minh</option>
+                                <option value="danang">Đà Nẵng</option>
+                                <option value="haiphong">Hải Phòng</option>
+                                <option value="cantho">Cần Thơ</option>
+                                <option value="angiang">An Giang</option>
+                                <option value="bariavungtau">Bà Rịa - Vũng Tàu</option>
+                                <option value="bacgiang">Bắc Giang</option>
+                                <option value="backan">Bắc Kạn</option>
+                                <option value="baclieu">Bạc Liêu</option>
+                                <option value="bacninh">Bắc Ninh</option>
+                                <option value="bentre">Bến Tre</option>
+                                <option value="binhdinh">Bình Định</option>
+                                <option value="binhduong">Bình Dương</option>
+                                <option value="binhphuoc">Bình Phước</option>
+                                <option value="binhthuan">Bình Thuận</option>
+                                <option value="camau">Cà Mau</option>
+                                <option value="caobang">Cao Bằng</option>
+                                <option value="daklak">Đắk Lắk</option>
+                                <option value="daknong">Đắk Nông</option>
+                                <option value="dienbien">Điện Biên</option>
+                                <option value="dongnai">Đồng Nai</option>
+                                <option value="dongthap">Đồng Tháp</option>
+                                <option value="gialai">Gia Lai</option>
+                                <option value="hagiang">Hà Giang</option>
+                                <option value="hanam">Hà Nam</option>
+                                <option value="hatay">Hà Tây</option>
+                                <option value="hatinh">Hà Tĩnh</option>
+                                <option value="haiduong">Hải Dương</option>
+                                <option value="haugiang">Hậu Giang</option>
+                                <option value="hoabinh">Hòa Bình</option>
+                                <option value="hungyen">Hưng Yên</option>
+                                <option value="khanhhoa">Khánh Hòa</option>
+                                <option value="kiengiang">Kiên Giang</option>
+                                <option value="kontum">Kon Tum</option>
+                                <option value="laichau">Lai Châu</option>
+                                <option value="lamdong">Lâm Đồng</option>
+                                <option value="langson">Lạng Sơn</option>
+                                <option value="laocai">Lào Cai</option>
+                                <option value="longan">Long An</option>
+                                <option value="namdinh">Nam Định</option>
+                                <option value="nghean">Nghệ An</option>
+                                <option value="ninhbinh">Ninh Bình</option>
+                                <option value="ninhthuan">Ninh Thuận</option>
+                                <option value="phutho">Phú Thọ</option>
+                                <option value="phuyen">Phú Yên</option>
+                                <option value="quangbinh">Quảng Bình</option>
+                                <option value="quangnam">Quảng Nam</option>
+                                <option value="quangngai">Quảng Ngãi</option>
+                                <option value="quangninh">Quảng Ninh</option>
+                                <option value="quangtri">Quảng Trị</option>
+                                <option value="soctrang">Sóc Trăng</option>
+                                <option value="sonla">Sơn La</option>
+                                <option value="tayninh">Tây Ninh</option>
+                                <option value="thaibinh">Thái Bình</option>
+                                <option value="thainguyen">Thái Nguyên</option>
+                                <option value="thanhhoa">Thanh Hóa</option>
+                                <option value="thuathienhue">Thừa Thiên Huế</option>
+                                <option value="tiengiang">Tiền Giang</option>
+                                <option value="travinh">Trà Vinh</option>
+                                <option value="tuyenquang">Tuyên Quang</option>
+                                <option value="vinhlong">Vĩnh Long</option>
+                                <option value="vinhphuc">Vĩnh Phúc</option>
+                                <option value="yenbai">Yên Bái</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quận/Huyện:</label>
+                            <input type="text" id="customer-district" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Phường/Xã:</label>
+                            <input type="text" id="customer-ward" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Địa chỉ chi tiết:</label>
+                            <input type="text" id="customer-address" required>
+                        </div>
+                    </div>
+                    
+                    <h3>Phương thức thanh toán</h3>
+                    <div class="payment-options">
+                        <div class="payment-option selected" onclick="selectPayment('cod')">
+                            <h4>💵 Thanh toán khi nhận hàng (COD)</h4>
+                            <p>Thanh toán bằng tiền mặt khi nhận hàng</p>
+                        </div>
+                        <div class="payment-option" onclick="selectPayment('transfer')">
+                            <h4>🏦 Chuyển khoản</h4>
+                            <p>Chuyển khoản trước khi giao hàng</p>
+                        </div>
+                    </div>
+
+                    <div id="transfer-info" class="hidden" style="background: #f8f9fa; padding: 1rem; border-radius: 10px; margin: 1rem 0;">
+                        <h4>Thông tin chuyển khoản:</h4>
+                        <p><strong>Ngân hàng:</strong> Vietcombank</p>
+                        <p><strong>Số tài khoản:</strong> 1234567890</p>
+                        <p><strong>Tên tài khoản:</strong> CONG TY TECHSTORE</p>
+                        <p><strong>Nội dung:</strong> <span id="transfer-content"></span></p>
+                    </div>
+
+                    <div class="cart-total">
+                        <div class="total-price" id="checkout-total">Tổng: 0 VNĐ</div>
+                        <button type="submit" class="btn">Đặt hàng</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample product data
+        let products = [
+            {
+                id: 1,
+                name: "Camera Canon EOS R5",
+                price: 85000000,
+                description: "Camera mirrorless full-frame chuyên nghiệp với độ phân giải 45MP, quay video 8K",
+                stock: 10,
+                variants: [
+                    { name: "Chỉ camera", price: 0 },
+                    { name: "Camera + Lens 24-70mm", price: 25000000 },
+                    { name: "Camera + Lens + Tripod", price: 30000000 }
+                ],
+                images: ["📷", "📸", "🎥"]
+            },
+            {
+                id: 2,
+                name: "iPhone 15 Pro Max",
+                price: 35000000,
+                description: "Điện thoại thông minh cao cấp với chip A17 Pro, camera 48MP, titanium design",
+                stock: 15,
+                variants: [
+                    { name: "128GB", price: 0 },
+                    { name: "256GB", price: 5000000 },
+                    { name: "512GB", price: 10000000 },
+                    { name: "1TB", price: 15000000 }
+                ],
+                images: ["📱", "📲", "💎"]
+            },
+            {
+                id: 3,
+                name: "MacBook Pro 16 inch",
+                price: 65000000,
+                description: "Laptop chuyên nghiệp với chip M3 Pro, màn hình Liquid Retina XDR, 18 giờ pin",
+                stock: 8,
+                variants: [
+                    { name: "M3 Pro - 18GB RAM - 512GB SSD", price: 0 },
+                    { name: "M3 Pro - 36GB RAM - 1TB SSD", price: 15000000 },
+                    { name: "M3 Max - 48GB RAM - 1TB SSD", price: 25000000 }
+                ],
+                images: ["💻", "⚡", "🎨"]
+            },
+            {
+                id: 4,
+                name: "Sony WH-1000XM5",
+                price: 8500000,
+                description: "Tai nghe không dây chống ồn hàng đầu, âm thanh Hi-Res, pin 30 giờ",
+                stock: 20,
+                variants: [
+                    { name: "Đen", price: 0 },
+                    { name: "Bạc", price: 0 },
+                    { name: "Limited Edition", price: 1000000 }
+                ],
+                images: ["🎧", "🔊", "🎵"]
+            }
+        ];
+
+        let cart = [];
+        let orders = [];
+        let editingProductId = null;
+
+        /* Initialize the app */
+        document.addEventListener('DOMContentLoaded', function() {
+            // Remove any potential text overflow at the top
+            const existingText = document.querySelector('body').childNodes;
+            existingText.forEach(node => {
+                if (node.nodeType === 3 && node.textContent.trim()) { // Text node
+                    node.remove();
+                }
+            });
+            
+            renderProducts();
+            updateCartUI();
+            renderAdminProducts();
+        });
+
+        // User management system
+        let users = [
+            {
+                id: 1,
+                name: "Nguyễn Văn A",
+                email: "demo@example.com",
+                password: "123456",
+                phone: "0901234567",
+                addresses: [
+                    {
+                        id: 1,
+                        name: "Nguyễn Văn A",
+                        phone: "0901234567",
+                        province: "hanoi",
+                        district: "Ba Đình",
+                        ward: "Phúc Xá",
+                        detail: "123 Đường ABC",
+                        isDefault: true
+                    }
+                ],
+                orderHistory: []
+            }
+        ];
+        
+        let currentUser = null;
+        let isUserLoggedIn = false;
+        let editingAddressId = null;
+
+        // Admin authentication
+        let isLoggedIn = false;
+        const adminCredentials = {
+            username: 'admin',
+            password: 'admin123'
+        };
+
+        // User authentication functions
+        function showUserLoginModal() {
+            document.getElementById('user-login-modal').style.display = 'block';
+            showLoginForm();
+        }
+
+        function closeUserModal() {
+            document.getElementById('user-login-modal').style.display = 'none';
+            clearUserForms();
+        }
+
+        // Admin authentication functions  
+        function showAdminLoginModal() {
+            document.getElementById('login-modal').style.display = 'block';
+        }
+
+        function closeAdminLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('login-form').reset();
+            document.getElementById('login-error').style.display = 'none';
+        }
+
+        function showLoginForm() {
+            document.getElementById('login-form-container').classList.remove('hidden');
+            document.getElementById('register-form-container').classList.add('hidden');
+            clearUserForms();
+        }
+
+        function showRegisterForm() {
+            document.getElementById('login-form-container').classList.add('hidden');
+            document.getElementById('register-form-container').classList.remove('hidden');
+            clearUserForms();
+        }
+
+        function clearUserForms() {
+            document.getElementById('user-login-form').reset();
+            document.getElementById('user-register-form').reset();
+            document.getElementById('login-user-error').style.display = 'none';
+            document.getElementById('register-error').style.display = 'none';
+        }
+
+        function userLogin(email, password) {
+            const user = users.find(u => u.email === email && u.password === password);
+            if (user) {
+                currentUser = user;
+                isUserLoggedIn = true;
+                updateUserUI();
+                closeUserModal();
+                showNotification(`Chào mừng ${user.name}!`);
+                return true;
+            }
+            return false;
+        }
+
+        function userLogout() {
+            currentUser = null;
+            isUserLoggedIn = false;
+            updateUserUI();
+            showNotification('Đã đăng xuất thành công!');
+        }
+
+        function userRegister(userData) {
+            // Check if email already exists
+            if (users.find(u => u.email === userData.email)) {
+                return { success: false, message: 'Email đã được sử dụng!' };
+            }
+
+            // Check if passwords match
+            if (userData.password !== userData.confirmPassword) {
+                return { success: false, message: 'Mật khẩu xác nhận không khớp!' };
+            }
+
+            // Create new user
+            const newUser = {
+                id: Date.now(),
+                name: userData.name,
+                email: userData.email,
+                password: userData.password,
+                phone: userData.phone,
+                addresses: [],
+                orderHistory: []
+            };
+
+            users.push(newUser);
+            return { success: true, user: newUser };
+        }
+
+        function updateUserUI() {
+            const loginLink = document.getElementById('login-link');
+            const userInfo = document.getElementById('user-info');
+            const userWelcome = document.getElementById('user-welcome');
+
+            if (isUserLoggedIn && currentUser) {
+                loginLink.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                userWelcome.textContent = `Xin chào, ${currentUser.name.split(' ').pop()}`;
+            } else {
+                loginLink.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+            }
+        }
+
+        // Handle user login form
+        document.getElementById('user-login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (userLogin(email, password)) {
+                // Login successful
+            } else {
+                document.getElementById('login-user-error').style.display = 'block';
+            }
+        });
+
+        // Handle user register form
+        document.getElementById('user-register-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const userData = {
+                name: document.getElementById('register-name').value,
+                email: document.getElementById('register-email').value,
+                password: document.getElementById('register-password').value,
+                confirmPassword: document.getElementById('register-confirm-password').value,
+                phone: document.getElementById('register-phone').value
+            };
+            
+            const result = userRegister(userData);
+            
+            if (result.success) {
+                currentUser = result.user;
+                isUserLoggedIn = true;
+                updateUserUI();
+                closeUserModal();
+                showNotification('Đăng ký thành công! Chào mừng bạn đến với TechStore!');
+            } else {
+                const errorDiv = document.getElementById('register-error');
+                errorDiv.textContent = result.message;
+                errorDiv.style.display = 'block';
+            }
+        });
+
+        // Navigation functions
+        function showPage(page) {
+            if (page === 'admin') {
+                if (!isLoggedIn) {
+                    showAdminLoginModal(); // Admin login riêng
+                    return;
+                }
+            }
+            if (page === 'account') {
+                if (!isUserLoggedIn) {
+                    showUserLoginModal();
+                    return;
+                }
+            }
+            
+            document.getElementById('home-page').classList.toggle('hidden', page !== 'home');
+            document.getElementById('admin-page').classList.toggle('hidden', page !== 'admin');
+            document.getElementById('account-page').classList.toggle('hidden', page !== 'account');
+            
+            if (page === 'account') {
+                showAccountTab('profile');
+                updateAccountInfo();
+            }
+        }
+
+        // Login functions
+        function showLoginModal() {
+            document.getElementById('login-modal').style.display = 'block';
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('login-form').reset();
+            document.getElementById('login-error').style.display = 'none';
+        }
+
+        function adminLogout() {
+            isLoggedIn = false;
+            updateAdminUI();
+            showPage('home');
+            showNotification('Admin đã đăng xuất thành công!');
+        }
+
+        function updateAdminUI() {
+            const adminText = document.getElementById('admin-text');
+            if (isLoggedIn) {
+                adminText.textContent = 'Quản lý ✓';
+                adminText.style.color = '#00b894';
+            } else {
+                adminText.textContent = 'Quản lý';
+                adminText.style.color = '';
+            }
+        }
+
+        // Handle login form
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            
+            if (username === adminCredentials.username && password === adminCredentials.password) {
+                isLoggedIn = true;
+                updateAdminUI();
+                closeLoginModal();
+                showPage('admin');
+                showNotification('Đăng nhập thành công!');
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        });
+
+        function showAdminTab(tab) {
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.admin-content').forEach(c => c.classList.remove('active'));
+            
+            document.querySelector(`[onclick="showAdminTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`admin-${tab}`).classList.add('active');
+            
+            if (tab === 'orders') {
+                renderOrders();
+            } else if (tab === 'customers') {
+                renderCustomers();
+            }
+        }
+
+        // Product rendering
+        function renderProducts() {
+            const grid = document.getElementById('products-grid');
+            grid.innerHTML = products.map(product => `
+                <div class="product-card" onclick="openProductModal(${product.id})">
+                    <div class="product-image">
+                        ${product.images && product.images.length > 0 && product.images[0].startsWith('data:') 
+                            ? `<img src="${product.images[0]}" alt="${product.name}">` 
+                            : (product.images && product.images[0] ? product.images[0] : '📦')}
+                    </div>
+                    <div class="product-info">
+                        <h3>${product.name}</h3>
+                        <div class="product-price">${formatPrice(product.price)}</div>
+                        <button class="btn" onclick="event.stopPropagation(); quickAddToCart(${product.id})">
+                            Thêm vào giỏ hàng
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Product modal
+        function openProductModal(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const modal = document.getElementById('product-modal');
+            const content = document.getElementById('product-detail-content');
+            
+            content.innerHTML = `
+                <div class="product-details">
+                    <div class="product-gallery">
+                        <div class="main-image" id="main-image">
+                            ${product.images && product.images.length > 0 && product.images[0].startsWith('data:') 
+                                ? `<img src="${product.images[0]}" alt="${product.name}">` 
+                                : (product.images && product.images[0] ? product.images[0] : '📦')}
+                        </div>
+                        <div class="thumbnail-images">
+                            ${product.images.map((img, index) => `
+                                <div class="thumbnail ${index === 0 ? 'active' : ''}" 
+                                     onclick="changeMainImage('${img}', this, ${index})">
+                                    ${img.startsWith('data:') ? `<img src="${img}" alt="Image ${index + 1}">` : img}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <h2>${product.name}</h2>
+                        <div class="product-price" id="modal-price">${formatPrice(product.price)}</div>
+                        <p>${product.description}</p>
+                        
+                        <div class="product-options">
+                            <div class="option-group">
+                                <label>Tùy chọn:</label>
+                                <select id="product-variant" onchange="updateModalPrice(${product.id})">
+                                    ${product.variants.map((variant, index) => `
+                                        <option value="${index}">${variant.name} ${variant.price > 0 ? '(+' + formatPrice(variant.price) + ')' : ''}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="quantity-selector">
+                            <label>Số lượng:</label>
+                            <button type="button" class="quantity-btn" onclick="changeQuantity(-1)">-</button>
+                            <input type="number" id="modal-quantity" class="quantity-input" value="1" min="1" max="${product.stock}">
+                            <button type="button" class="quantity-btn" onclick="changeQuantity(1)">+</button>
+                            <span>Còn lại: ${product.stock}</span>
+                        </div>
+                        
+                        <button class="btn" onclick="addToCartFromModal(${product.id})">
+                            Thêm vào giỏ hàng
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        function closeProductModal() {
+            document.getElementById('product-modal').style.display = 'none';
+        }
+
+        function changeMainImage(imageSrc, thumbnail, imageIndex) {
+            const mainImage = document.getElementById('main-image');
+            const product = products.find(p => p.images.includes(imageSrc));
+            
+            if (imageSrc.startsWith('data:')) {
+                mainImage.innerHTML = `<img src="${imageSrc}" alt="Product Image">`;
+            } else {
+                mainImage.textContent = imageSrc;
+            }
+            
+            document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
+            thumbnail.classList.add('active');
+        }
+
+        function updateModalPrice(productId) {
+            const product = products.find(p => p.id === productId);
+            const variantSelect = document.getElementById('product-variant');
+            const selectedVariant = product.variants[parseInt(variantSelect.value)];
+            const totalPrice = product.price + selectedVariant.price;
+            document.getElementById('modal-price').textContent = formatPrice(totalPrice);
+        }
+
+        function changeQuantity(delta) {
+            const quantityInput = document.getElementById('modal-quantity');
+            const currentValue = parseInt(quantityInput.value);
+            const newValue = Math.max(1, Math.min(parseInt(quantityInput.max), currentValue + delta));
+            quantityInput.value = newValue;
+        }
+
+        // Cart functions
+        function quickAddToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product || product.stock <= 0) return;
+
+            const cartItem = {
+                id: Date.now(),
+                productId: productId,
+                name: product.name,
+                price: product.price,
+                variant: product.variants[0],
+                quantity: 1,
+                image: product.images[0]
+            };
+
+            cart.push(cartItem);
+            updateCartUI();
+            showNotification('Đã thêm vào giỏ hàng!');
+        }
+
+        function addToCartFromModal(productId) {
+            const product = products.find(p => p.id === productId);
+            const variantIndex = parseInt(document.getElementById('product-variant').value);
+            const quantity = parseInt(document.getElementById('modal-quantity').value);
+            
+            if (!product || quantity > product.stock) return;
+
+            const selectedVariant = product.variants[variantIndex];
+            const cartItem = {
+                id: Date.now(),
+                productId: productId,
+                name: product.name,
+                price: product.price + selectedVariant.price,
+                variant: selectedVariant,
+                quantity: quantity,
+                image: product.images[0]
+            };
+
+            cart.push(cartItem);
+            updateCartUI();
+            closeProductModal();
+            showNotification('Đã thêm vào giỏ hàng!');
+        }
+
+        function toggleCart() {
+            const cartSidebar = document.getElementById('cart-sidebar');
+            cartSidebar.classList.toggle('open');
+        }
+
+        function updateCartUI() {
+            const cartCount = document.querySelector('.cart-count');
+            const cartItems = document.getElementById('cart-items');
+            const cartTotal = document.getElementById('cart-total');
+            const checkoutBtn = document.getElementById('checkout-btn');
+            
+            cartCount.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
+            
+            if (cart.length === 0) {
+                cartItems.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Giỏ hàng trống</p>';
+                cartTotal.textContent = 'Tổng: 0 VNĐ';
+                checkoutBtn.disabled = true;
+                return;
+            }
+            
+            checkoutBtn.disabled = false;
+            
+            cartItems.innerHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div class="cart-item-image">${item.image}</div>
+                    <div class="cart-item-info">
+                        <h4>${item.name}</h4>
+                        <p>${item.variant.name}</p>
+                        <div class="cart-item-price">${formatPrice(item.price)} x ${item.quantity}</div>
+                    </div>
+                    <button onclick="removeFromCart(${item.id})" style="background: #ff6b6b; color: white; border: none; padding: 0.5rem; border-radius: 5px; cursor: pointer;">×</button>
+                </div>
+            `).join('');
+            
+            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            cartTotal.textContent = `Tổng: ${formatPrice(total)}`;
+        }
+
+        function removeFromCart(itemId) {
+            cart = cart.filter(item => item.id !== itemId);
+            updateCartUI();
+        }
+
+        // Account management functions
+        function showAccountTab(tab) {
+            document.querySelectorAll('#account-page .admin-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#account-page .admin-content').forEach(c => c.classList.remove('active'));
+            
+            document.querySelector(`[onclick="showAccountTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`account-${tab}`).classList.add('active');
+            
+            if (tab === 'addresses') {
+                renderUserAddresses();
+            } else if (tab === 'orders') {
+                renderUserOrders();
+            } else if (tab === 'profile') {
+                loadProfileForm();
+            }
+        }
+
+        function updateAccountInfo() {
+            if (currentUser) {
+                document.getElementById('account-welcome').textContent = `${currentUser.name}`;
+            }
+        }
+
+        function loadProfileForm() {
+            if (currentUser) {
+                document.getElementById('profile-name').value = currentUser.name;
+                document.getElementById('profile-email').value = currentUser.email;
+                document.getElementById('profile-phone').value = currentUser.phone;
+            }
+        }
+
+        // Address management
+        function renderUserAddresses() {
+            const addressesList = document.getElementById('addresses-list');
+            
+            if (!currentUser.addresses || currentUser.addresses.length === 0) {
+                addressesList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Chưa có địa chỉ giao hàng nào</p>';
+                return;
+            }
+            
+            addressesList.innerHTML = currentUser.addresses.map(address => `
+                <div class="product-item ${address.isDefault ? 'default-address' : ''}" style="${address.isDefault ? 'border-color: #667eea; background: rgba(102, 126, 234, 0.05);' : ''}">
+                    <div class="product-item-info">
+                        <h4>${address.name} ${address.isDefault ? '(Mặc định)' : ''}</h4>
+                        <p><strong>SĐT:</strong> ${address.phone}</p>
+                        <p><strong>Địa chỉ:</strong> ${address.detail}, ${address.ward}, ${address.district}, ${getProvinceName(address.province)}</p>
+                    </div>
+                    <div class="product-actions">
+                        ${!address.isDefault ? `<button class="btn btn-small" onclick="setDefaultAddress(${address.id})">Đặt mặc định</button>` : ''}
+                        <button class="btn btn-small" onclick="editAddress(${address.id})">Sửa</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteAddress(${address.id})">Xóa</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showAddAddressForm() {
+            editingAddressId = null;
+            document.getElementById('address-form-title').textContent = 'Thêm địa chỉ mới';
+            document.getElementById('address-form-element').reset();
+            // Pre-fill name and phone
+            if (currentUser) {
+                document.getElementById('address-name').value = currentUser.name;
+                document.getElementById('address-phone').value = currentUser.phone;
+            }
+            document.getElementById('address-form').classList.remove('hidden');
+        }
+
+        function hideAddressForm() {
+            document.getElementById('address-form').classList.add('hidden');
+            editingAddressId = null;
+        }
+
+        function editAddress(addressId) {
+            const address = currentUser.addresses.find(a => a.id === addressId);
+            if (!address) return;
+            
+            editingAddressId = addressId;
+            document.getElementById('address-form-title').textContent = 'Sửa địa chỉ';
+            document.getElementById('address-name').value = address.name;
+            document.getElementById('address-phone').value = address.phone;
+            document.getElementById('address-province').value = address.province;
+            document.getElementById('address-district').value = address.district;
+            document.getElementById('address-ward').value = address.ward;
+            document.getElementById('address-detail').value = address.detail;
+            document.getElementById('address-default').checked = address.isDefault;
+            document.getElementById('address-form').classList.remove('hidden');
+        }
+
+        function deleteAddress(addressId) {
+            if (confirm('Bạn có chắc chắn muốn xóa địa chỉ này?')) {
+                currentUser.addresses = currentUser.addresses.filter(a => a.id !== addressId);
+                renderUserAddresses();
+                showNotification('Đã xóa địa chỉ!');
+            }
+        }
+
+        function setDefaultAddress(addressId) {
+            // Remove default from all addresses
+            currentUser.addresses.forEach(a => a.isDefault = false);
+            // Set new default
+            const address = currentUser.addresses.find(a => a.id === addressId);
+            if (address) {
+                address.isDefault = true;
+                renderUserAddresses();
+                showNotification('Đã đặt làm địa chỉ mặc định!');
+            }
+        }
+
+        function getProvinceName(provinceCode) {
+            const provinces = {
+                'hanoi': 'Hà Nội',
+                'hcm': 'TP. Hồ Chí Minh',
+                'danang': 'Đà Nẵng',
+                'haiphong': 'Hải Phòng',
+                'cantho': 'Cần Thơ'
+                // Add more as needed
+            };
+            return provinces[provinceCode] || provinceCode;
+        }
+
+        function renderUserOrders() {
+            const ordersList = document.getElementById('user-orders-list');
+            
+            if (!currentUser.orderHistory || currentUser.orderHistory.length === 0) {
+                ordersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Bạn chưa có đơn hàng nào</p>';
+                return;
+            }
+            
+            ordersList.innerHTML = currentUser.orderHistory.map(order => `
+                <div class="order-history-item">
+                    <div class="order-header">
+                        <div>
+                            <div class="order-id">Đơn hàng #${order.id}</div>
+                            <div style="color: #666; font-size: 0.9rem;">${order.date} | ${order.paymentMethod}</div>
+                        </div>
+                        <div class="order-status ${order.status === 'Chờ xử lý' ? 'pending' : 'completed'}">
+                            ${order.status}
+                        </div>
+                    </div>
+                    
+                    <div class="order-items-list">
+                        ${order.items.map(item => `
+                            <div class="order-item">
+                                <span>${item.name} (${item.variant.name})</span>
+                                <span>${formatPrice(item.price)} x ${item.quantity}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="order-total">
+                        Tổng cộng: ${formatPrice(order.total)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Form handlers
+        document.getElementById('profile-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            currentUser.name = document.getElementById('profile-name').value;
+            currentUser.phone = document.getElementById('profile-phone').value;
+            
+            updateUserUI();
+            updateAccountInfo();
+            showNotification('Đã cập nhật thông tin cá nhân!');
+        });
+
+        document.getElementById('address-form-element').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const addressData = {
+                name: document.getElementById('address-name').value,
+                phone: document.getElementById('address-phone').value,
+                province: document.getElementById('address-province').value,
+                district: document.getElementById('address-district').value,
+                ward: document.getElementById('address-ward').value,
+                detail: document.getElementById('address-detail').value,
+                isDefault: document.getElementById('address-default').checked
+            };
+            
+            if (editingAddressId) {
+                // Update existing address
+                const addressIndex = currentUser.addresses.findIndex(a => a.id === editingAddressId);
+                currentUser.addresses[addressIndex] = { ...currentUser.addresses[addressIndex], ...addressData };
+                showNotification('Đã cập nhật địa chỉ!');
+            } else {
+                // Add new address
+                const newAddress = {
+                    id: Date.now(),
+                    ...addressData
+                };
+                
+                // If this is the first address or marked as default, make it default
+                if (currentUser.addresses.length === 0 || addressData.isDefault) {
+                    currentUser.addresses.forEach(a => a.isDefault = false);
+                    newAddress.isDefault = true;
+                }
+                
+                currentUser.addresses.push(newAddress);
+                showNotification('Đã thêm địa chỉ mới!');
+            }
+            
+            renderUserAddresses();
+            hideAddressForm();
+        });
+
+        // Checkout functions
+        function showCheckout() {
+            if (cart.length === 0) return;
+            
+            const modal = document.getElementById('checkout-modal');
+            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            document.getElementById('checkout-total').textContent = `Tổng: ${formatPrice(total)}`;
+            document.getElementById('transfer-content').textContent = `DH${Date.now()}`;
+            
+            // Pre-fill form if user is logged in
+            if (isUserLoggedIn && currentUser) {
+                document.getElementById('customer-name').value = currentUser.name;
+                document.getElementById('customer-phone').value = currentUser.phone;
+                document.getElementById('customer-email').value = currentUser.email;
+                // Address fields will be filled by user during checkout
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function closeCheckout() {
+            document.getElementById('checkout-modal').style.display = 'none';
+            // Reset saved address options
+            document.getElementById('saved-addresses').style.display = 'none';
+            document.getElementById('save-address-option').style.display = 'none';
+        }
+
+        function selectPayment(method) {
+            document.querySelectorAll('.payment-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            const transferInfo = document.getElementById('transfer-info');
+            transferInfo.classList.toggle('hidden', method !== 'transfer');
+        }
+
+        // Handle checkout form submission
+        document.getElementById('checkout-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const paymentMethod = document.querySelector('.payment-option.selected').onclick.toString().includes('cod') ? 'COD' : 'Chuyển khoản';
+            
+            const order = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('vi-VN'),
+                customer: {
+                    name: document.getElementById('customer-name').value,
+                    phone: document.getElementById('customer-phone').value,
+                    email: document.getElementById('customer-email').value,
+                    address: {
+                        province: document.getElementById('customer-province').value,
+                        district: document.getElementById('customer-district').value,
+                        ward: document.getElementById('customer-ward').value,
+                        detail: document.getElementById('customer-address').value
+                    }
+                },
+                items: [...cart],
+                total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+                paymentMethod: paymentMethod,
+                status: 'Chờ xử lý',
+                userId: isUserLoggedIn ? currentUser.id : null
+            };
+            
+            orders.push(order);
+            
+            // Add to user's order history if logged in
+            if (isUserLoggedIn && currentUser) {
+                currentUser.orderHistory.push(order);
+                
+                // Save address if requested and it's a new address
+                const savedAddressSelect = document.getElementById('saved-address-select');
+                const saveNewAddress = document.getElementById('save-new-address');
+                
+                if (saveNewAddress.checked && savedAddressSelect.value === '') {
+                    const newAddress = {
+                        id: Date.now(),
+                        name: order.customer.name,
+                        phone: order.customer.phone,
+                        province: order.customer.address.province,
+                        district: order.customer.address.district,
+                        ward: order.customer.address.ward,
+                        detail: order.customer.address.detail,
+                        isDefault: currentUser.addresses.length === 0 // First address becomes default
+                    };
+                    
+                    currentUser.addresses.push(newAddress);
+                    showNotification('Đã lưu địa chỉ giao hàng cho lần mua tiếp theo!');
+                }
+            }
+            
+            cart = [];
+            updateCartUI();
+            closeCheckout();
+            toggleCart();
+            
+            showNotification('Đặt hàng thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
+            
+            // Reset form
+            e.target.reset();
+            document.querySelector('.payment-option').click();
+        });
+
+        // Admin functions
+        function renderAdminProducts() {
+            const productList = document.getElementById('product-list');
+            if (products.length === 0) {
+                productList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Chưa có sản phẩm nào</p>';
+                return;
+            }
+            
+            productList.innerHTML = products.map(product => `
+                <div class="product-item">
+                    <div class="product-item-info">
+                        <h4>${product.name}</h4>
+                        <p>Giá: ${formatPrice(product.price)} | Tồn kho: ${product.stock} | Tùy chọn: ${product.variants.length}</p>
+                    </div>
+                    <div class="product-actions">
+                        <button class="btn btn-small" onclick="editProduct(${product.id})">Sửa</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteProduct(${product.id})">Xóa</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Image handling functions
+        let selectedImages = [];
+        let coverImageIndex = 0;
+
+        function handleImageUpload() {
+            const fileInput = document.getElementById('product-images');
+            const imagePreview = document.getElementById('image-preview');
+            
+            fileInput.addEventListener('change', function(e) {
+                const files = Array.from(e.target.files);
+                selectedImages = [];
+                imagePreview.innerHTML = '';
+                
+                files.forEach((file, index) => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            selectedImages.push(e.target.result);
+                            renderImagePreview();
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            });
+        }
+
+        function renderImagePreview() {
+            const imagePreview = document.getElementById('image-preview');
+            imagePreview.innerHTML = selectedImages.map((img, index) => `
+                <div class="image-preview-item ${index === coverImageIndex ? 'cover' : ''}">
+                    ${index === coverImageIndex ? '<div class="cover-label">Ảnh bìa</div>' : ''}
+                    <img src="${img}" alt="Preview ${index + 1}">
+                    <div class="image-preview-controls">
+                        ${index !== coverImageIndex ? `<button type="button" class="image-preview-btn set-cover-btn" onclick="setCoverImage(${index})">Làm ảnh bìa</button>` : ''}
+                        <button type="button" class="image-preview-btn remove-image-btn" onclick="removeImage(${index})">Xóa</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function setCoverImage(index) {
+            coverImageIndex = index;
+            // Move cover image to first position
+            const coverImage = selectedImages[index];
+            selectedImages.splice(index, 1);
+            selectedImages.unshift(coverImage);
+            coverImageIndex = 0;
+            renderImagePreview();
+        }
+
+        function removeImage(index) {
+            selectedImages.splice(index, 1);
+            if (coverImageIndex >= index && coverImageIndex > 0) {
+                coverImageIndex--;
+            }
+            if (selectedImages.length === 0) {
+                coverImageIndex = 0;
+            }
+            renderImagePreview();
+        }
+
+        function showAddProductForm() {
+            editingProductId = null;
+            selectedImages = [];
+            coverImageIndex = 0;
+            document.getElementById('form-title').textContent = 'Thêm sản phẩm mới';
+            document.getElementById('product-form-element').reset();
+            document.getElementById('image-preview').innerHTML = '';
+            document.getElementById('product-form').classList.remove('hidden');
+            handleImageUpload();
+        }
+
+        function hideProductForm() {
+            document.getElementById('product-form').classList.add('hidden');
+            editingProductId = null;
+        }
+
+        function editProduct(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
+            editingProductId = productId;
+            selectedImages = [...(product.images || [])];
+            coverImageIndex = 0;
+            
+            document.getElementById('form-title').textContent = 'Sửa sản phẩm';
+            document.getElementById('product-name').value = product.name;
+            document.getElementById('product-price').value = product.price;
+            document.getElementById('product-description').value = product.description;
+            document.getElementById('product-stock').value = product.stock;
+            document.getElementById('product-variants').value = product.variants.map(v => `${v.name}:${v.price}`).join('\n');
+            document.getElementById('product-form').classList.remove('hidden');
+            
+            renderImagePreview();
+            handleImageUpload();
+        }
+
+        function deleteProduct(productId) {
+            if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
+                products = products.filter(p => p.id !== productId);
+                renderProducts();
+                renderAdminProducts();
+                showNotification('Đã xóa sản phẩm!');
+            }
+        }
+
+        // Handle product form submission
+        document.getElementById('product-form-element').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('product-name').value;
+            const price = parseInt(document.getElementById('product-price').value);
+            const description = document.getElementById('product-description').value;
+            const stock = parseInt(document.getElementById('product-stock').value);
+            const variantsText = document.getElementById('product-variants').value;
+            
+            // Parse variants
+            const variants = variantsText.split('\n').filter(line => line.trim()).map(line => {
+                const [name, priceStr] = line.split(':');
+                return {
+                    name: name.trim(),
+                    price: parseInt(priceStr.trim()) || 0
+                };
+            });
+            
+            if (variants.length === 0) {
+                variants.push({ name: 'Mặc định', price: 0 });
+            }
+            
+            // Use selected images or default emoji
+            const productImages = selectedImages.length > 0 ? selectedImages : ['📦', '🎯', '⭐'];
+            
+            const productData = {
+                name,
+                price,
+                description,
+                stock,
+                variants,
+                images: productImages
+            };
+            
+            if (editingProductId) {
+                // Update existing product
+                const productIndex = products.findIndex(p => p.id === editingProductId);
+                products[productIndex] = { ...products[productIndex], ...productData };
+                showNotification('Đã cập nhật sản phẩm!');
+            } else {
+                // Add new product
+                const newProduct = {
+                    id: Date.now(),
+                    ...productData
+                };
+                products.push(newProduct);
+                showNotification('Đã thêm sản phẩm mới!');
+            }
+            
+            renderProducts();
+            renderAdminProducts();
+            hideProductForm();
+        });
+
+        // Customer management functions
+        function renderCustomers() {
+            const customersList = document.getElementById('customers-list');
+            
+            if (users.length === 0) {
+                customersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Chưa có khách hàng nào đăng ký</p>';
+                return;
+            }
+            
+            customersList.innerHTML = users.map(user => {
+                const orderCount = user.orderHistory ? user.orderHistory.length : 0;
+                const totalSpent = user.orderHistory ? user.orderHistory.reduce((sum, order) => sum + order.total, 0) : 0;
+                
+                return `
+                    <div class="product-item">
+                        <div class="product-item-info">
+                            <h4>${user.name}</h4>
+                            <p><strong>Email:</strong> ${user.email} | <strong>SĐT:</strong> ${user.phone}</p>
+                            <p><strong>Đơn hàng:</strong> ${orderCount} | <strong>Tổng mua:</strong> ${formatPrice(totalSpent)}</p>
+                        </div>
+                        <div class="product-actions">
+                            <button class="btn btn-small" onclick="viewCustomerDetail(${user.id})">Xem chi tiết</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function viewCustomerDetail(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+            
+            const modal = document.getElementById('customer-detail-modal');
+            const title = document.getElementById('customer-detail-title');
+            const body = document.getElementById('customer-detail-body');
+            
+            title.textContent = `Thông tin khách hàng: ${user.name}`;
+            
+            const orderCount = user.orderHistory ? user.orderHistory.length : 0;
+            const totalSpent = user.orderHistory ? user.orderHistory.reduce((sum, order) => sum + order.total, 0) : 0;
+            const lastOrderDate = user.orderHistory && user.orderHistory.length > 0 
+                ? user.orderHistory[user.orderHistory.length - 1].date 
+                : 'Chưa có đơn hàng';
+            
+            body.innerHTML = `
+                <div class="customer-info-grid">
+                    <div class="customer-info-card">
+                        <h4>📋 Thông tin cá nhân</h4>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Họ và tên:</span>
+                            <span class="customer-info-value">${user.name}</span>
+                        </div>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Email:</span>
+                            <span class="customer-info-value">${user.email}</span>
+                        </div>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Số điện thoại:</span>
+                            <span class="customer-info-value">${user.phone}</span>
+                        </div>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">ID khách hàng:</span>
+                            <span class="customer-info-value">#${user.id}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="customer-info-card">
+                        <h4>📊 Thống kê mua hàng</h4>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Số đơn hàng:</span>
+                            <span class="customer-info-value">${orderCount} đơn</span>
+                        </div>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Tổng chi tiêu:</span>
+                            <span class="customer-info-value">${formatPrice(totalSpent)}</span>
+                        </div>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Đơn hàng cuối:</span>
+                            <span class="customer-info-value">${lastOrderDate}</span>
+                        </div>
+                        <div class="customer-info-item">
+                            <span class="customer-info-label">Trung bình/đơn:</span>
+                            <span class="customer-info-value">${orderCount > 0 ? formatPrice(totalSpent / orderCount) : '0 VNĐ'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="order-history-section">
+                    <h3>📦 Lịch sử đơn hàng</h3>
+                    ${user.orderHistory && user.orderHistory.length > 0 ? 
+                        user.orderHistory.map(order => `
+                            <div class="order-history-item">
+                                <div class="order-header">
+                                    <div>
+                                        <div class="order-id">Đơn hàng #${order.id}</div>
+                                        <div style="color: #666; font-size: 0.9rem;">${order.date} | ${order.paymentMethod}</div>
+                                    </div>
+                                    <div class="order-status ${order.status === 'Chờ xử lý' ? 'pending' : 'completed'}">
+                                        ${order.status}
+                                    </div>
+                                </div>
+                                
+                                <div style="margin: 1rem 0;">
+                                    <strong>📍 Địa chỉ giao hàng:</strong><br>
+                                    ${order.customer.address.detail}, ${order.customer.address.ward}, ${order.customer.address.district}, ${order.customer.address.province}
+                                </div>
+                                
+                                <div class="order-items-list">
+                                    <strong>🛒 Sản phẩm:</strong>
+                                    ${order.items.map(item => `
+                                        <div class="order-item">
+                                            <span>${item.name} (${item.variant.name})</span>
+                                            <span>${formatPrice(item.price)} x ${item.quantity}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <div class="order-total">
+                                    Tổng cộng: ${formatPrice(order.total)}
+                                </div>
+                            </div>
+                        `).join('')
+                        : '<p style="text-align: center; padding: 2rem; color: #999; background: #f8f9fa; border-radius: 10px;">Khách hàng chưa có đơn hàng nào</p>'
+                    }
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        function closeCustomerDetailModal() {
+            document.getElementById('customer-detail-modal').style.display = 'none';
+        }
+
+        function renderOrders() {
+            const ordersList = document.getElementById('orders-list');
+            
+            if (orders.length === 0) {
+                ordersList.innerHTML = '<p style="text-align: center; padding: 2rem; color: #999;">Chưa có đơn hàng nào</p>';
+                return;
+            }
+            
+            ordersList.innerHTML = orders.map(order => `
+                <div class="product-item" style="flex-direction: column; align-items: flex-start;">
+                    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div>
+                            <h4>Đơn hàng #${order.id}</h4>
+                            <p>Ngày: ${order.date} | Tổng: ${formatPrice(order.total)}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p><strong>${order.status}</strong></p>
+                            <p>${order.paymentMethod}</p>
+                        </div>
+                    </div>
+                    <div style="width: 100%; background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                        <p><strong>Khách hàng:</strong> ${order.customer.name} - ${order.customer.phone}</p>
+                        <p><strong>Địa chỉ:</strong> ${order.customer.address.detail}, ${order.customer.address.ward}, ${order.customer.address.district}, ${order.customer.address.province}</p>
+                        <p><strong>Sản phẩm:</strong></p>
+                        <ul style="margin-left: 1rem;">
+                            ${order.items.map(item => `
+                                <li>${item.name} (${item.variant.name}) - ${formatPrice(item.price)} x ${item.quantity}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Utility functions
+        function formatPrice(price) {
+            return new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND'
+            }).format(price);
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                background: #00b894;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 10px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const productModal = document.getElementById('product-modal');
+            const checkoutModal = document.getElementById('checkout-modal');
+            const adminLoginModal = document.getElementById('login-modal');
+            const userLoginModal = document.getElementById('user-login-modal');
+            const customerDetailModal = document.getElementById('customer-detail-modal');
+            
+            if (event.target === productModal) {
+                closeProductModal();
+            }
+            if (event.target === checkoutModal) {
+                closeCheckout();
+            }
+            if (event.target === adminLoginModal) {
+                closeAdminLoginModal();
+            }
+            if (event.target === userLoginModal) {
+                closeUserModal();
+            }
+            if (event.target === customerDetailModal) {
+                closeCustomerDetailModal();
+            }
+        }
+    </script>
+</body>
+</html>
